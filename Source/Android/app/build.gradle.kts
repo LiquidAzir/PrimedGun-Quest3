@@ -161,7 +161,7 @@ val preparePrimedGunAssets by tasks.registering(Sync::class) {
     }
     // Optional game-derived artwork/texture packs are not distributed.
     from("../../../LICENSES") { into("Sys/Licenses/Project") }
-    from("../../../COPYING", "../../../THIRD_PARTY_NOTICES.md") { into("Sys/Licenses") }
+    from("../../../COPYING") { into("Sys/Licenses/Project") }
 }
 
 tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.configureEach {

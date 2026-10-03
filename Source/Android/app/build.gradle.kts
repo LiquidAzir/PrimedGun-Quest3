@@ -173,7 +173,7 @@ baselineProfile {
 // Release lint also reads the generated asset directory. Declare the producer
 // for both packaging and lint so clean Gradle builds cannot race that copy.
 tasks.matching {
-    (it.name.startsWith("merge") && it.name.endsWith("Assets")) || it.name.contains("Lint")
+    (it.name.startsWith("merge") && it.name.endsWith("Assets")) || it.name.contains("lint", ignoreCase = true)
 }.configureEach {
     dependsOn(preparePrimedGunAssets)
 }

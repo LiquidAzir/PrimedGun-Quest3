@@ -1,0 +1,2 @@
+add_dolphin_test(VertexLoaderTest VertexLoaderTest.cpp)
+add_dolphin_test(EyeProjectionCacheTest EyeProjectionCacheTest.cpp)

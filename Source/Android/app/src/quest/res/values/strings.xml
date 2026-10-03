@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PrimedGun Quest</string>
+    <string name="stereoscopy_openxr">OpenXR VR</string>
+    <string name="quest_launcher_title">PrimedGun Quest</string>
+    <string name="quest_launcher_description">Standalone Metroid Prime VR for Quest 3. Select your original USA GameCube ROM (GM8E01, revision 0), then launch in VR.</string>
+    <string name="quest_preparing">Preparing files…</string>
+    <string name="quest_launch_vr">Launch Metroid Prime in VR</string>
+    <string name="quest_choose_rom">Choose ROM</string>
+    <string name="quest_scan_roms">Find copied ROMs</string>
+    <string name="quest_graphics_settings">Graphics quality</string>
+    <string name="quest_graphics_presets">Graphics presets</string>
+    <string-array name="quest_graphics_preset_options">
+        <item>1× Performance (fallback)\n1× resolution, 72 Hz. Leaves more rendering headroom.</item>
+        <item>2× Performance\n2× resolution, 120 Hz. Optional reduced shading detail on eligible scenery; keeps HUD and menus at full quality.</item>
+        <item>2× Full Quality\n2× resolution, 120 Hz. Full shading detail throughout the scene.</item>
+    </string-array>
+    <string name="quest_graphics_preset_default">%1$s (default)</string>
+    <string name="quest_graphics_preset_applied">Preset saved. Launch the game to use it. Higher resolution may reduce frame rate.</string>
+    <string name="quest_graphics_preset_failed">Could not save the preset. Stop emulation first and check that app storage is available.</string>
+    <string name="quest_library_settings">Game library and all settings</string>
+    <string name="quest_ready">Ready: %1$s (%2$s)</string>
+    <string name="quest_no_rom">Choose your ROM, or copy it into:\n%1$s\nThen select Find copied ROMs.</string>
+    <string name="quest_no_picker">This headset has no system file picker. Copy your ROM into:\n%1$s\nThen select Find copied ROMs.</string>
+    <string name="quest_invalid_rom">Cannot use this ROM. This prototype needs Metroid Prime for GameCube, USA release GM8E01, revision 0. The file must also remain accessible. Choose that ROM again, or copy it into the app’s Games folder and use Find copied ROMs.</string>
+    <string name="quest_controls_help">Use both Touch controllers. Click the right stick to reset forward direction, position, and height. Hold the left menu button and click the right stick together for 2 seconds to return to this launcher.\n\nThe default is 2× Full Quality. Use Graphics presets to change it. Saves and settings are stored separately from the PC version.</string>
+</resources>

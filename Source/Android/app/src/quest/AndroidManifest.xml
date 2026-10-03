@@ -1,0 +1,77 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="org.khronos.openxr.permission.OPENXR_SYSTEM" />
+    <!-- The supported GameCube VR configuration does not use a microphone or TV guide. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove" />
+    <uses-permission android:name="com.android.providers.tv.permission.READ_EPG_DATA" tools:node="remove" />
+    <uses-permission android:name="com.android.providers.tv.permission.WRITE_EPG_DATA" tools:node="remove" />
+
+    <queries>
+        <provider android:authorities="org.khronos.openxr.runtime_broker;org.khronos.openxr.system_runtime_broker" />
+        <intent>
+            <action android:name="org.khronos.openxr.OpenXRRuntimeService" />
+        </intent>
+        <intent>
+            <action android:name="org.khronos.openxr.OpenXRApiLayerService" />
+        </intent>
+    </queries>
+
+    <uses-feature
+        android:name="android.hardware.vr.headtracking"
+        android:required="true"
+        android:version="1" />
+    <uses-feature
+        android:name="android.software.xr.api.openxr"
+        android:required="true" />
+
+    <application>
+        <activity android:name=".ui.main.MainActivity" tools:node="merge">
+            <intent-filter tools:node="removeAll" />
+        </activity>
+        <activity android:name=".ui.main.TvMainActivity" tools:node="merge">
+            <intent-filter tools:node="removeAll" />
+        </activity>
+        <activity
+            android:name=".activities.QuestLauncherActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Dolphin.Main">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <uses-native-library
+            android:name="libopenxr.google.so"
+            android:required="false" />
+        <meta-data
+            android:name="com.oculus.supportedDevices"
+            android:value="${questSupportedDevices}" />
+        <meta-data
+            android:name="com.oculus.vr.focusaware"
+            android:value="true" />
+        <meta-data
+            android:name="com.oculus.trade_cpu_for_gpu_amount"
+            android:value="-1" />
+
+        <activity
+            android:name=".activities.EmulationActivity"
+            android:theme="@style/Theme.Dolphin.EmulationVR"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|navigation|uiMode|density"
+            android:resizeableActivity="false"
+            android:exported="true"
+            tools:node="merge"
+            tools:replace="android:theme,android:exported">
+            <property
+                android:name="android.window.PROPERTY_XR_ACTIVITY_START_MODE"
+                android:value="XR_ACTIVITY_START_MODE_FULL_SPACE_UNMANAGED" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="com.oculus.intent.category.VR" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

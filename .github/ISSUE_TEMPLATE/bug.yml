@@ -1,0 +1,29 @@
+name: Quest bug report
+description: Report a problem with the standalone Quest build.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check docs/TROUBLESHOOTING.md first. Do not upload ROMs, memory cards, save states,
+        account information, device serial numbers, or unreviewed logs. This is a public issue.
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      placeholder: 0.1.0-preview.1
+    validations:
+      required: true
+  - type: dropdown
+    id: headset
+    attributes:
+      label: Headset
+      options:
+        - Quest 3
+        - Quest 3S (not validated)
+  - type: textarea
+    id: steps
+    attributes:
+      label: What happened and how to reproduce it
+      description: Include the room or scene, graphics preset, and what you expected.
+    validations:
+      required: true

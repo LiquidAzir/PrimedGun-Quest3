@@ -1,0 +1,2 @@
+# Quest-only defaults are source assets, not CMake-generated files.
+!assets/

@@ -1,0 +1,528 @@
+// Copyright 2024 Dolphin Emulator Project
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#pragma once
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <span>
+#include <string>
+#include <vector>
+
+#include "Common/CommonPaths.h"
+#include "Common/FileUtil.h"
+#include "Common/Image.h"
+#include "Common/IOFile.h"
+#include "Common/Logging/Log.h"
+#include "Common/VR/OpenXRInputState.h"
+
+#include <openxr/openxr.h>
+
+namespace PrimedGun::Overlay
+{
+inline std::array<uint8_t, 7> Glyph(char ch)
+{
+  switch (ch)
+  {
+  case 'A': return {0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11};
+  case 'B': return {0x1E, 0x11, 0x11, 0x1E, 0x11, 0x11, 0x1E};
+  case 'C': return {0x0F, 0x10, 0x10, 0x10, 0x10, 0x10, 0x0F};
+  case 'D': return {0x1E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1E};
+  case 'E': return {0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x1F};
+  case 'F': return {0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x10};
+  case 'G': return {0x0F, 0x10, 0x10, 0x13, 0x11, 0x11, 0x0F};
+  case 'H': return {0x11, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11};
+  case 'I': return {0x1F, 0x04, 0x04, 0x04, 0x04, 0x04, 0x1F};
+  case 'K': return {0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11};
+  case 'L': return {0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1F};
+  case 'M': return {0x11, 0x1B, 0x15, 0x15, 0x11, 0x11, 0x11};
+  case 'N': return {0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11};
+  case 'O': return {0x0E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E};
+  case 'P': return {0x1E, 0x11, 0x11, 0x1E, 0x10, 0x10, 0x10};
+  case 'R': return {0x1E, 0x11, 0x11, 0x1E, 0x14, 0x12, 0x11};
+  case 'S': return {0x0F, 0x10, 0x10, 0x0E, 0x01, 0x01, 0x1E};
+  case 'T': return {0x1F, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04};
+  case 'U': return {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E};
+  case 'V': return {0x11, 0x11, 0x11, 0x11, 0x0A, 0x0A, 0x04};
+  case 'W': return {0x11, 0x11, 0x11, 0x15, 0x15, 0x1B, 0x11};
+  case 'X': return {0x11, 0x0A, 0x04, 0x04, 0x04, 0x0A, 0x11};
+  case 'Y': return {0x11, 0x0A, 0x04, 0x04, 0x04, 0x04, 0x04};
+  case 'Z': return {0x1F, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1F};
+  case '0': return {0x0E, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0E};
+  case '1': return {0x04, 0x0C, 0x04, 0x04, 0x04, 0x04, 0x0E};
+  case '2': return {0x0E, 0x11, 0x01, 0x02, 0x04, 0x08, 0x1F};
+  case '3': return {0x1E, 0x01, 0x01, 0x0E, 0x01, 0x01, 0x1E};
+  case '4': return {0x02, 0x06, 0x0A, 0x12, 0x1F, 0x02, 0x02};
+  case '5': return {0x1F, 0x10, 0x10, 0x1E, 0x01, 0x01, 0x1E};
+  case '6': return {0x0E, 0x10, 0x10, 0x1E, 0x11, 0x11, 0x0E};
+  case '7': return {0x1F, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08};
+  case '8': return {0x0E, 0x11, 0x11, 0x0E, 0x11, 0x11, 0x0E};
+  case '9': return {0x0E, 0x11, 0x11, 0x0F, 0x01, 0x01, 0x0E};
+  case '.': return {0, 0, 0, 0, 0, 0x0C, 0x0C};
+  case '-': return {0, 0, 0, 0x1F, 0, 0, 0};
+  case '+': return {0, 0x04, 0x04, 0x1F, 0x04, 0x04, 0};
+  case '/': return {0x01, 0x02, 0x02, 0x04, 0x08, 0x08, 0x10};
+  default: return {};
+  }
+}
+
+inline void FillRect(std::vector<uint32_t>& pixels, uint32_t width, uint32_t height, int x, int y,
+                     int w, int h, uint32_t color)
+{
+  const int x0 = std::clamp(x, 0, static_cast<int>(width));
+  const int y0 = std::clamp(y, 0, static_cast<int>(height));
+  const int x1 = std::clamp(x + w, 0, static_cast<int>(width));
+  const int y1 = std::clamp(y + h, 0, static_cast<int>(height));
+  for (int py = y0; py < y1; ++py)
+    for (int px = x0; px < x1; ++px)
+      pixels[static_cast<size_t>(py) * width + px] = color;
+}
+
+inline int TextWidth(const char* text, int scale)
+{
+  const int chars = static_cast<int>(std::strlen(text));
+  return chars > 0 ? ((chars * 6) - 1) * scale : 0;
+}
+
+inline void DrawText(std::vector<uint32_t>& pixels, uint32_t width, uint32_t height,
+                     const char* text, int x, int y, int scale, uint32_t color)
+{
+  int cursor = x;
+  for (const char* p = text; *p; ++p)
+  {
+    const auto rows = Glyph(*p);
+    for (int row = 0; row < 7; ++row)
+      for (int col = 0; col < 5; ++col)
+        if ((rows[static_cast<size_t>(row)] & (1u << (4 - col))) != 0)
+          FillRect(pixels, width, height, cursor + col * scale, y + row * scale, scale, scale,
+                   color);
+    cursor += 6 * scale;
+  }
+}
+
+inline std::string FloatText(float value, int precision)
+{
+  char buffer[32]{};
+  std::snprintf(buffer, sizeof(buffer), precision == 3 ? "%.3f" : precision == 1 ? "%.1f" : "%.2f",
+                value);
+  return buffer;
+}
+
+struct PrimedGunPng
+{
+  Common::UniqueBuffer<u8> data;
+  u32 width = 0;
+  u32 height = 0;
+  bool tried = false;
+};
+
+inline bool LoadPrimedGunPngFromPath(const std::string& path, PrimedGunPng* image)
+{
+  File::IOFile file(path, "rb", File::SharedAccess::Read);
+  if (!file.IsOpen())
+    return false;
+
+  const u64 size = file.GetSize();
+  if (size == 0)
+    return false;
+
+  Common::UniqueBuffer<u8> buffer(size);
+  if (!file.ReadBytes(buffer.data(), size))
+    return false;
+
+  Common::UniqueBuffer<u8> pixels;
+  u32 width = 0;
+  u32 height = 0;
+  if (!Common::LoadPNG(std::span<const u8>(buffer.data(), static_cast<size_t>(size)), &pixels,
+                       &width, &height) ||
+      pixels.empty() || width == 0 || height == 0)
+  {
+    return false;
+  }
+
+  image->data = std::move(pixels);
+  image->width = width;
+  image->height = height;
+  return true;
+}
+
+inline const PrimedGunPng& LoadPrimedGunPng(const char* filename)
+{
+  static PrimedGunPng power;
+  static PrimedGunPng wave;
+  static PrimedGunPng ice;
+  static PrimedGunPng plasma;
+
+  PrimedGunPng* image = &power;
+  if (std::strcmp(filename, "wave.png") == 0)
+    image = &wave;
+  else if (std::strcmp(filename, "ice.png") == 0)
+    image = &ice;
+  else if (std::strcmp(filename, "plasma.png") == 0)
+    image = &plasma;
+
+  if (!image->tried)
+  {
+    image->tried = true;
+#ifdef ANDROID
+    // DirectoryInitialization extracts these bundled APK assets alongside Sys.
+    const std::string path = File::GetSysDirectory() + "PrimedGun/" + filename;
+#else
+    const std::string path = File::GetExeDirectory() + DIR_SEP "assets" DIR_SEP + filename;
+#endif
+    if (!LoadPrimedGunPngFromPath(path, image))
+      WARN_LOG_FMT(VIDEO, "PrimedGun: Failed to load weapon panel asset '{}'.", path);
+  }
+
+  return *image;
+}
+
+inline void BlendPixel(std::vector<uint32_t>& pixels, uint32_t width, uint32_t height, int x,
+                       int y, uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+{
+  if (x < 0 || y < 0 || x >= static_cast<int>(width) || y >= static_cast<int>(height) || a == 0)
+    return;
+
+  const size_t dst_index = static_cast<size_t>(y) * width + x;
+  const uint32_t dst = pixels[dst_index];
+  const uint8_t da = static_cast<uint8_t>(dst >> 24);
+  const uint8_t dr = static_cast<uint8_t>(dst >> 16);
+  const uint8_t dg = static_cast<uint8_t>(dst >> 8);
+  const uint8_t db = static_cast<uint8_t>(dst);
+  const uint32_t inv_a = 255u - a;
+  const uint8_t out_a = static_cast<uint8_t>(std::min(
+      255u, static_cast<uint32_t>(a) + (static_cast<uint32_t>(da) * inv_a) / 255u));
+  const uint8_t out_r = static_cast<uint8_t>((static_cast<uint32_t>(r) * a +
+                                              static_cast<uint32_t>(dr) * inv_a) /
+                                             255u);
+  const uint8_t out_g = static_cast<uint8_t>((static_cast<uint32_t>(g) * a +
+                                              static_cast<uint32_t>(dg) * inv_a) /
+                                             255u);
+  const uint8_t out_b = static_cast<uint8_t>((static_cast<uint32_t>(b) * a +
+                                              static_cast<uint32_t>(db) * inv_a) /
+                                             255u);
+  pixels[dst_index] = (static_cast<uint32_t>(out_a) << 24) |
+                      (static_cast<uint32_t>(out_r) << 16) |
+                      (static_cast<uint32_t>(out_g) << 8) | static_cast<uint32_t>(out_b);
+}
+
+inline void DrawPngFit(std::vector<uint32_t>& pixels, uint32_t width, uint32_t height,
+                       const PrimedGunPng& image, int x, int y, int w, int h, bool selected)
+{
+  if (selected)
+  {
+    FillRect(pixels, width, height, x - 10, y - 10, w + 20, 5, 0xE0FFB030u);
+    FillRect(pixels, width, height, x - 10, y + h + 5, w + 20, 5, 0xE0FFB030u);
+    FillRect(pixels, width, height, x - 10, y - 10, 5, h + 20, 0xE0FFB030u);
+    FillRect(pixels, width, height, x + w + 5, y - 10, 5, h + 20, 0xE0FFB030u);
+  }
+
+  if (image.data.empty() || image.width == 0 || image.height == 0)
+    return;
+
+  const float scale = std::min(static_cast<float>(w) / static_cast<float>(image.width),
+                               static_cast<float>(h) / static_cast<float>(image.height));
+  const int draw_w = std::max(1, static_cast<int>(std::lround(image.width * scale)));
+  const int draw_h = std::max(1, static_cast<int>(std::lround(image.height * scale)));
+  const int dst_x = x + (w - draw_w) / 2;
+  const int dst_y = y + (h - draw_h) / 2;
+
+  for (int py = 0; py < draw_h; ++py)
+  {
+    const u32 sy =
+        std::min(image.height - 1, static_cast<u32>((static_cast<int64_t>(py) * image.height) /
+                                                    std::max(1, draw_h)));
+    for (int px = 0; px < draw_w; ++px)
+    {
+      const u32 sx =
+          std::min(image.width - 1, static_cast<u32>((static_cast<int64_t>(px) * image.width) /
+                                                     std::max(1, draw_w)));
+      const size_t src = (static_cast<size_t>(sy) * image.width + sx) * 4;
+      BlendPixel(pixels, width, height, dst_x + px, dst_y + py, image.data[src + 2],
+                 image.data[src + 1], image.data[src + 0], image.data[src + 3]);
+    }
+  }
+}
+
+struct MenuRow
+{
+  const char* label;
+  std::string value;
+};
+
+inline bool MenuRowIsNumeric(uint32_t tab, int index)
+{
+  switch (tab)
+  {
+  case 0:
+    return index == 1 || index == 2;
+  case 1:
+    return index >= 0 && index <= 5;
+  case 2:
+    return index == 2 || index == 5 || index == 8 || index == 9 || index == 10;
+  case 3:
+    return index >= 3 && index <= 7;
+  default:
+    return false;
+  }
+}
+
+inline std::vector<MenuRow> BuildMenuRows(const Common::VR::PrimedGunVrOverlayState& s)
+{
+  switch (s.tab)
+  {
+  case 1:
+    return {{"POS LEFT/RIGHT", FloatText(s.model_offset_x, 3)},
+            {"POS FORWARD/BACK", FloatText(s.model_offset_y, 3)},
+            {"POS UP/DOWN", FloatText(s.model_offset_z, 3)},
+            {"ROT PITCH", FloatText(s.rot_offset_x, 1)},
+            {"ROT YAW", FloatText(s.rot_offset_y, 1)},
+            {"ROT ROLL", FloatText(s.rot_offset_z, 1)},
+            {"RESET CALIBRATION", "PRESS"}};
+  case 2:
+    return {{"RIGHT HAND", s.use_right_hand ? "ON" : "OFF"},
+            {"REQUIRE TRIGGER", s.require_trigger ? "ON" : "OFF"},
+            {"TRIGGER", FloatText(s.trigger_threshold, 2)},
+            {"PRIMEDGUN GRIP INPUTS", s.primegun_grip_inputs_enabled ? "ON" : "OFF"},
+            {"GRIP INPUT SOURCE", s.primegun_grip_inputs_use_trackpad ? "TRACKPAD" : "GRIP"},
+            {"TRACKPAD SENSITIVITY", FloatText(s.primegun_trackpad_press_threshold, 2)},
+            {"VISOR GESTURE", s.xr_dpad_enabled ? "ON" : "OFF"},
+            {"D-PAD ENABLED", s.xr_dpad_enabled ? "ON" : "OFF"},
+            {"HEAD RADIUS", FloatText(s.xr_dpad_head_radius, 2)},
+            {"HEAD BELOW", FloatText(s.xr_dpad_head_y_below, 2)},
+            {"STICK DEADZONE", FloatText(s.xr_dpad_deadzone, 2)},
+            {"RESET CONTROLLER", "PRESS"}};
+  case 3:
+    return {{"LEFT STICK STRAFE", s.directional_movement_enabled ? "ON" : "OFF"},
+            {"MOVEMENT STICK", s.directional_movement_use_right_stick ? "RIGHT" : "LEFT"},
+            {"MOVE DIRECTION", s.directional_movement_use_hmd_direction ? "HMD" : "CONTROLLER"},
+            {"MOVE DEADZONE", FloatText(s.directional_movement_deadzone, 2)},
+            {"MOVE SPEED", FloatText(s.directional_movement_speed, 1)},
+            {"MOVE ACCEL", FloatText(s.directional_movement_accel, 1)},
+            {"AIR ACCEL", FloatText(s.directional_movement_air_accel, 1)},
+            {"LOOK YAW SENSITIVITY", FloatText(s.look_yaw_sensitivity, 2)},
+            {"RESET MOVEMENT", "PRESS"}};
+  case 4:
+    return {{"DEFAULT ARM PRESET", "APPLY"}, {"SAMUS ARM PRESET", "APPLY"}};
+  case 5:
+  {
+    auto slot_status = [&](uint32_t slot) {
+      return s.cannon_texture_slot == slot ? std::string("SELECTED") : std::string("SELECT");
+    };
+    return {{"DEFAULT", slot_status(0)}, {"SLOT 1", slot_status(1)},
+            {"SLOT 2", slot_status(2)}, {"SLOT 3", slot_status(3)},
+            {"SLOT 4", slot_status(4)}, {"CUSTOM", slot_status(5)}};
+  }
+  default:
+    return {{"TARGETING", s.gun_targeting_enabled ? "ON" : "OFF"},
+            {"TARGET DISTANCE", FloatText(s.gun_targeting_distance, 1)},
+            {"TARGET RADIUS", FloatText(s.gun_targeting_radius, 1)},
+            {"VISOR HELMET", s.visor_helmet_enabled ? "ON" : "OFF"},
+            {"RESET TARGETING", "PRESS"}};
+  }
+}
+
+inline std::vector<uint32_t> BuildPromptPixels(uint32_t width, uint32_t height)
+{
+  std::vector<uint32_t> pixels(static_cast<size_t>(width) * height, 0);
+  FillRect(pixels, width, height, 0, 0, static_cast<int>(width), static_cast<int>(height),
+           0xD0100804u);
+  FillRect(pixels, width, height, 0, 0, static_cast<int>(width), 8, 0xE0FFB030u);
+  FillRect(pixels, width, height, 0, static_cast<int>(height) - 8, static_cast<int>(width), 8,
+           0xE0FFB030u);
+#if defined(ANDROID)
+  constexpr const char* lines[] = {"FACE FORWARD", "CLICK RIGHT", "THUMBSTICK", "TO RECENTER"};
+#else
+  constexpr const char* lines[] = {"CLICK RIGHT", "THUMBSTICK", "TO SET", "HEIGHT"};
+#endif
+  const int scale = 5;
+  const int step = 78;
+  for (int i = 0; i < 4; ++i)
+    DrawText(pixels, width, height, lines[i],
+             (static_cast<int>(width) - TextWidth(lines[i], scale)) / 2, 44 + i * step, scale,
+             0xFFFFD8A0u);
+  return pixels;
+}
+
+inline std::vector<uint32_t> BuildMenuPixels(uint32_t width, uint32_t height,
+                                             const Common::VR::PrimedGunVrOverlayState& s)
+{
+  std::vector<uint32_t> pixels(static_cast<size_t>(width) * height, 0);
+  FillRect(pixels, width, height, 0, 0, static_cast<int>(width), static_cast<int>(height),
+           0xD0100804u);
+  FillRect(pixels, width, height, 0, 0, static_cast<int>(width), 10, 0xE0FFB030u);
+  FillRect(pixels, width, height, 0, static_cast<int>(height) - 10, static_cast<int>(width), 10,
+           0xE0FFB030u);
+  DrawText(pixels, width, height, "PRIMEDGUN SETTINGS", 48, 28, 4, 0xFFFFD8A0u);
+  if (s.saved_notice)
+    DrawText(pixels, width, height, "SETTINGS SAVED", 760, 34, 2, 0xFFFFE6B8u);
+
+  constexpr const char* tabs[] = {"AIMING", "CALIB", "CONTROL", "MOVE", "PRESETS", "TEXTURE"};
+  constexpr int tab_width = 150;
+  constexpr int tab_step = 162;
+  for (int i = 0; i < static_cast<int>(std::size(tabs)); ++i)
+  {
+    const int x = 36 + i * tab_step;
+    const bool active = i == static_cast<int>(s.tab);
+    FillRect(pixels, width, height, x, 64, tab_width, 38, active ? 0xD04A2C12u : 0x7030180Cu);
+    FillRect(pixels, width, height, x, 98, tab_width, 4, active ? 0xFFFFB030u : 0x604A2C12u);
+    DrawText(pixels, width, height, tabs[i], x + (tab_width - TextWidth(tabs[i], 2)) / 2, 75, 2,
+             active ? 0xFFFFE6B8u : 0xFFD8C0A0u);
+  }
+
+  auto draw_button = [&](const char* label, int x, int y, int w) {
+    FillRect(pixels, width, height, x, y, w, 28, 0x9030180Cu);
+    FillRect(pixels, width, height, x, y, 5, 28, 0x80FFB030u);
+    DrawText(pixels, width, height, label, x + (w - TextWidth(label, 2)) / 2, y + 7, 2,
+             0xFFFFE6B8u);
+  };
+  draw_button("SAVE SETTINGS", 52, 108, 220);
+  draw_button("RESET ALL", 300, 108, 220);
+
+  const auto rows = BuildMenuRows(s);
+  const int row_x = 52;
+  const int row_w = static_cast<int>(width) - 104;
+  for (int i = 0; i < static_cast<int>(rows.size()); ++i)
+  {
+    const int y = 156 + i * 25;
+    const bool selected = i == static_cast<int>(s.selected_index);
+    FillRect(pixels, width, height, row_x, y - 9, row_w, 31,
+             selected ? 0xE04A2C12u : 0x70201810u);
+    FillRect(pixels, width, height, row_x, y - 9, 6, 31,
+             selected ? 0xFFFFB030u : 0x80FFB030u);
+    DrawText(pixels, width, height, rows[i].label, row_x + 16, y, 2,
+             selected ? 0xFFFFE6B8u : 0xFFD8C0A0u);
+    const int value_x = row_x + row_w - 190;
+    const bool numeric = MenuRowIsNumeric(s.tab, i);
+    FillRect(pixels, width, height, value_x, y - 5, 170, 23,
+             selected ? 0xD030180Cu : 0x9030180Cu);
+    if (numeric)
+    {
+      DrawText(pixels, width, height, "-", value_x + 8, y, 2, 0xFFFFB030u);
+      DrawText(pixels, width, height, "+", value_x + 148, y, 2, 0xFFFFB030u);
+    }
+    DrawText(pixels, width, height, rows[i].value.c_str(),
+             value_x + (170 - TextWidth(rows[i].value.c_str(), 2)) / 2, y, 2, 0xFFFFF0C8u);
+  }
+  return pixels;
+}
+
+inline std::vector<uint32_t> BuildWeaponPanelPixels(
+    uint32_t width, uint32_t height, const Common::VR::PrimedGunVrOverlayState& s)
+{
+  std::vector<uint32_t> pixels(static_cast<size_t>(width) * height, 0);
+
+  auto draw_slot = [&](uint32_t index, const char* filename, const char* label, uint32_t color,
+                       int x, int y, int w, int h) {
+    const PrimedGunPng& image = LoadPrimedGunPng(filename);
+    const bool selected = s.weapon_selected_index == index;
+    if (image.data.empty() || image.width == 0 || image.height == 0)
+    {
+      // Public builds do not bundle artwork from the game. Keep every weapon choice
+      // visible without external images, using the same placement and selection state.
+      FillRect(pixels, width, height, x, y, w, h, 0xE018202Bu);
+      FillRect(pixels, width, height, x, y, w, 6, color);
+      constexpr int text_scale = 3;
+      DrawText(pixels, width, height, label, x + (w - TextWidth(label, text_scale)) / 2,
+               y + (h - 7 * text_scale) / 2, text_scale, color);
+    }
+    DrawPngFit(pixels, width, height, image, x, y, w, h, selected);
+  };
+
+  draw_slot(1, "power.png", "POWER", 0xFFFFD06Bu, 184, 32, 144, 144);
+  draw_slot(4, "plasma.png", "PLASMA", 0xFFFF8966u, 32, 184, 144, 144);
+  draw_slot(2, "wave.png", "WAVE", 0xFFD09AFFu, 336, 184, 144, 144);
+  draw_slot(3, "ice.png", "ICE", 0xFF8EDFFAu, 184, 336, 144, 144);
+  return pixels;
+}
+
+inline XrVector3f RotateVector(const XrQuaternionf& q, const XrVector3f& v)
+{
+  const XrVector3f t{2.0f * (q.y * v.z - q.z * v.y), 2.0f * (q.z * v.x - q.x * v.z),
+                     2.0f * (q.x * v.y - q.y * v.x)};
+  return {v.x + q.w * t.x + (q.y * t.z - q.z * t.y),
+          v.y + q.w * t.y + (q.z * t.x - q.x * t.z),
+          v.z + q.w * t.z + (q.x * t.y - q.y * t.x)};
+}
+
+inline XrQuaternionf MulQuat(const XrQuaternionf& a, const XrQuaternionf& b)
+{
+  return {a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+          a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+          a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+          a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z};
+}
+
+struct HybridControllerPose
+{
+  bool valid = false;
+  XrVector3f position{};
+  XrQuaternionf orientation{0.0f, 0.0f, 0.0f, 1.0f};
+};
+
+inline HybridControllerPose MakeHybridPose(const Common::VR::OpenXRControllerState& controller)
+{
+  HybridControllerPose pose{};
+  if (controller.aim_pose.valid)
+  {
+    pose.valid = true;
+    pose.orientation = {controller.aim_pose.orientation[0], controller.aim_pose.orientation[1],
+                        controller.aim_pose.orientation[2], controller.aim_pose.orientation[3]};
+    pose.position = {controller.aim_pose.position[0], controller.aim_pose.position[1],
+                     controller.aim_pose.position[2]};
+  }
+  if (controller.grip_pose.valid)
+  {
+    pose.valid = true;
+    pose.position = {controller.grip_pose.position[0], controller.grip_pose.position[1],
+                     controller.grip_pose.position[2]};
+    if (!controller.aim_pose.valid)
+      pose.orientation = {controller.grip_pose.orientation[0], controller.grip_pose.orientation[1],
+                          controller.grip_pose.orientation[2], controller.grip_pose.orientation[3]};
+  }
+  return pose;
+}
+
+inline HybridControllerPose MakeGripPose(const Common::VR::OpenXRControllerState& controller)
+{
+  HybridControllerPose pose{};
+  if (controller.grip_pose.valid)
+  {
+    pose.valid = true;
+    pose.position = {controller.grip_pose.position[0], controller.grip_pose.position[1],
+                     controller.grip_pose.position[2]};
+    pose.orientation = {controller.grip_pose.orientation[0], controller.grip_pose.orientation[1],
+                        controller.grip_pose.orientation[2], controller.grip_pose.orientation[3]};
+    return pose;
+  }
+  return MakeHybridPose(controller);
+}
+
+inline HybridControllerPose MakeAimPose(const Common::VR::OpenXRControllerState& controller)
+{
+  HybridControllerPose pose{};
+  if (!controller.aim_pose.valid)
+    return pose;
+
+  pose.valid = true;
+  pose.position = {controller.aim_pose.position[0], controller.aim_pose.position[1],
+                   controller.aim_pose.position[2]};
+  pose.orientation = {controller.aim_pose.orientation[0], controller.aim_pose.orientation[1],
+                      controller.aim_pose.orientation[2], controller.aim_pose.orientation[3]};
+  return pose;
+}
+
+inline void AddTrackingOrigin(HybridControllerPose* pose,
+                              const Common::VR::OpenXRInputSnapshot& snapshot)
+{
+  if (!pose || !pose->valid)
+    return;
+
+  pose->position.x += snapshot.tracking_origin_position[0];
+  pose->position.y += snapshot.tracking_origin_position[1];
+  pose->position.z += snapshot.tracking_origin_position[2];
+}
+}  // namespace PrimedGun::Overlay

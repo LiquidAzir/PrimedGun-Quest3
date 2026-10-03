@@ -50,6 +50,6 @@ This repository contains the Quest standalone source and build instructions. Sha
 - Dolphin ReduX development by iChris4, and the [Dolphin Emulator project](https://github.com/dolphin-emu/dolphin).
 - The Metroid Prime modding community and upstream dependency contributors.
 
-Licensing details are in [COPYING](COPYING), [LICENSES](LICENSES), per-file SPDX notices, and the bundled dependencies' license files. The combined source is GPLv3-compatible; individual files retain their original licenses and attribution. This is an unofficial community project, unaffiliated with Nintendo, Retro Studios, or Meta.
+The combined Quest application is distributed under **GNU GPL version 3**; see [LICENSE](LICENSE). Individual source files and third-party components retain their original licenses and attribution, as described in [COPYING](COPYING), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), per-file SPDX notices, and the dependencies' license files. Complete license texts are in [LICENSES](LICENSES). This is an unofficial community project, unaffiliated with Nintendo, Retro Studios, or Meta.
 
 Report bugs through [Issues](https://github.com/LiquidAzir/PrimedGun-Quest3/issues). Include the preview version, headset model, graphics preset, game location, and reproduction steps. Do not upload ROMs, saves, account details, or unreviewed device logs.

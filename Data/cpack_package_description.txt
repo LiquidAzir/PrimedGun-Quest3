@@ -1,0 +1,1 @@
+PrimedGun Quest is a community-developed standalone VR port for Meta Quest 3, built on PrimedGun and Dolphin. A compatible user-supplied game dump is required.

@@ -10,11 +10,14 @@ preserved. The Quest work does not imply endorsement by those projects.
 
 ## License and corresponding source
 
-Most Dolphin and PrimedGun code, including the Quest modifications, is licensed
-under GPL-2.0-or-later. The original [COPYING](COPYING) explains the aggregate
-GPLv3 compatibility and per-file licensing. The [LICENSES](LICENSES) directory
-contains the license texts; dependencies retain their own terms. The included
-GPLv3 text does not replace or remove the original per-file license grants.
+The combined Quest application is distributed under **GNU GPL version 3**; see
+[LICENSE](LICENSE). Most Dolphin and PrimedGun code, including the Quest
+modifications, is licensed under GPL-2.0-or-later. Individual source files and
+third-party components retain their original license terms, as described in
+the original [COPYING](COPYING), per-file SPDX identifiers, and dependency
+notices. The [LICENSES](LICENSES) directory contains the license texts. The
+combined application's GPLv3 distribution does not replace or remove the
+original per-file license grants.
 
 Each APK release is accompanied by the matching source tag and source archive
 in this repository, including the build scripts. Preserve those materials and

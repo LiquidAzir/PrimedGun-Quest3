@@ -164,6 +164,12 @@ val preparePrimedGunAssets by tasks.registering(Sync::class) {
     from("../../../COPYING") { into("Sys/Licenses/Project") }
 }
 
+// Building a sideload APK must not require a managed phone emulator or a headset.
+// Profiles can still be generated explicitly by developers.
+baselineProfile {
+    automaticGenerationDuringBuild = false
+}
+
 tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.configureEach {
     dependsOn(preparePrimedGunAssets)
 }
